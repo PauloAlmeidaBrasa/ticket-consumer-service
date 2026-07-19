@@ -2,8 +2,6 @@ package com.example.ticket_consumer_service.consumer;
 
 import java.util.List;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -12,10 +10,10 @@ import org.springframework.util.StringUtils;
 import com.example.ticket_consumer_service.config.TicketQueueProperties;
 import com.example.ticket_consumer_service.domain.TicketEntity;
 import com.example.ticket_consumer_service.dto.TicketPurchaseMessage;
+import com.example.ticket_consumer_service.handler.ConsumerErrorHandler;
 import com.example.ticket_consumer_service.helper.EmailHelper;
 import com.example.ticket_consumer_service.helper.WhatAppHelper;
 import com.example.ticket_consumer_service.service.TicketPurchaseProcessor;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import software.amazon.awssdk.core.exception.SdkClientException;
@@ -27,11 +25,10 @@ import software.amazon.awssdk.services.sqs.model.ReceiveMessageRequest;
 @Component
 public class TicketQueueConsumer {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(TicketQueueConsumer.class);
-
 	private final SqsClient sqsClient;
 	private final ObjectMapper objectMapper;
 	private final TicketPurchaseProcessor processor;
+	private final ConsumerErrorHandler errorHandler;
 	private EmailHelper emailHelper;
 	private WhatAppHelper whatAppHelper;
 	private TicketQueueProperties queueProperties;
@@ -39,10 +36,12 @@ public class TicketQueueConsumer {
 	public TicketQueueConsumer(
 			SqsClient sqsClient,
 			ObjectMapper objectMapper,
-			TicketPurchaseProcessor processor) {
+			TicketPurchaseProcessor processor,
+			ConsumerErrorHandler errorHandler) {
 		this.sqsClient = sqsClient;
 		this.objectMapper = objectMapper;
 		this.processor = processor;
+		this.errorHandler = errorHandler;
 	}
 
 	@Autowired
@@ -57,7 +56,6 @@ public class TicketQueueConsumer {
 
 	@Scheduled(fixedDelay = 1000)
 	public void consume() {
-        System.out.println("Consuming messages from SQS queue: " + queueProperties.getUrl());
 		if (queueProperties == null || !StringUtils.hasText(queueProperties.getUrl())) {
 			return;
 		}
@@ -76,7 +74,9 @@ public class TicketQueueConsumer {
 				processMessage(message);
 			}
 		} catch (SdkClientException exception) {
-			LOGGER.error("Failed to read from SQS. Check AWS credentials and region configuration.", exception);
+			errorHandler.handle(exception, null);
+		} catch (RuntimeException exception) {
+			errorHandler.handle(exception, null);
 		}
 	}
 
@@ -92,10 +92,8 @@ public class TicketQueueConsumer {
 					.queueUrl(queueProperties.getUrl())
 					.receiptHandle(message.receiptHandle())
 					.build());
-		} catch (JsonProcessingException exception) {
-			LOGGER.error("Failed to deserialize ticket purchase message", exception);
-		} catch (RuntimeException exception) {
-			LOGGER.error("Failed to process ticket purchase message", exception);
+		} catch (Exception exception) {
+			errorHandler.handle(exception, message.messageId());
 		}
 	}
 }

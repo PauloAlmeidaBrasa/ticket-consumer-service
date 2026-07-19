@@ -11,6 +11,7 @@ import com.example.ticket_consumer_service.config.TicketQueueProperties;
 import com.example.ticket_consumer_service.domain.EventEntity;
 import com.example.ticket_consumer_service.domain.TicketEntity;
 import com.example.ticket_consumer_service.dto.TicketPurchaseMessage;
+import com.example.ticket_consumer_service.handler.ConsumerErrorHandler;
 import com.example.ticket_consumer_service.helper.EmailHelper;
 import com.example.ticket_consumer_service.helper.WhatAppHelper;
 import com.example.ticket_consumer_service.service.TicketPurchaseProcessor;
@@ -37,7 +38,7 @@ class TicketQueueConsumerTest {
 		processor = Mockito.mock(TicketPurchaseProcessor.class);
 		emailHelper = Mockito.mock(EmailHelper.class);
 		whatAppHelper = Mockito.mock(WhatAppHelper.class);
-		consumer = new TicketQueueConsumer(sqsClient, new ObjectMapper(), processor);
+		consumer = new TicketQueueConsumer(sqsClient, new ObjectMapper(), processor, new ConsumerErrorHandler());
 		properties = new TicketQueueProperties();
 		properties.setUrl("https://sqs.us-east-1.amazonaws.com/123456789012/tickets");
 		consumer.setSupportComponents(emailHelper, whatAppHelper, properties);
