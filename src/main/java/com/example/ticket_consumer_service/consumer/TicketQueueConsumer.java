@@ -70,6 +70,7 @@ public class TicketQueueConsumer {
 		try {
 			List<Message> messages = sqsClient.receiveMessage(request).messages();
 
+			System.out.println();
 			for (Message message : messages) {
 				processMessage(message);
 			}
@@ -82,6 +83,7 @@ public class TicketQueueConsumer {
 
 	void processMessage(Message message) {
 		try {
+			System.out.println("Processing message: " + message.body());
 			TicketPurchaseMessage purchaseMessage = objectMapper.readValue(message.body(), TicketPurchaseMessage.class);
 			TicketEntity ticket = processor.process(purchaseMessage);
 
